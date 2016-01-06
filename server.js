@@ -8,15 +8,13 @@ var bodyParser = require("body-parser");
 /*
   Setup delle variabili prese dall'environment
 */
-var server_port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
-var server_ip_address = process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
+var server_port = 8080;
+var server_ip_address = '127.0.0.1';
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 var router = express.Router();
-
-var socketCount = 0;
 
 var socketCount = 0;
 
