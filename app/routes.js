@@ -170,7 +170,7 @@ module.exports = function(router, passport)
     });
 
     // Send messages
-  /*  router.post('/messages', isLoggedIn, function(req, res)
+    router.post('/messages', isLoggedIn, function(req, res)
     {
 		var mes = new Message();
 		var email = (function()
@@ -259,7 +259,7 @@ module.exports = function(router, passport)
 		    	});
 
 	    }
-    }); */
+    });
 };
 
 function isLoggedIn(req, res, next)
