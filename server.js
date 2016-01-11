@@ -2,8 +2,16 @@ var express = require('express');
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var mongoose = require('mongoose');
+var mongoosastic = require('mongoosastic');
 var elasticsearch = require('elasticsearch');
+var passport = require('passport');
+var flash = require('connect-flash');
+
+var morgan = require('morgan');
+var cookieParser = require('cookie-parser');
 var bodyParser = require("body-parser");
+var session = require('express-session');
 
 /*
   Setup delle variabili prese dall'environment
@@ -11,12 +19,24 @@ var bodyParser = require("body-parser");
 var server_port = 8080;
 var server_ip_address = '127.0.0.1';
 
+require('./config/passport')(passport);
+
+app.use(morgan('dev'));
+app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(session({
+  secret: 'supersecret',
+  resave: false,
+  saveUninitialized: false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(flash());
+
+app.set('view engine', 'ejs');
 
 var router = express.Router();
-
-var socketCount = 0;
 
 // CONNESSIONE AL SERVER
 http.listen(server_port, server_ip_address, function () {
@@ -41,14 +61,9 @@ client.ping({
   }
 });
 
-router.get('/', function (req, res) {
-    res.sendFile(__dirname + '/index.html');
-});
-
 io.on('connection', function(socket,req,res) {
   console.log('a user connected');
-  socketCount++;
-  io.emit('users connected', socketCount);
+  io.emit('user connected');
   socket.on('chat message', function(msg){
     io.emit('chat message', msg);
     client.create({
@@ -63,28 +78,9 @@ io.on('connection', function(socket,req,res) {
     });
   });
   socket.on('disconnect', function() {
-    socketCount--;
-    io.emit('users connected', socketCount)
+    io.emit('user disconnected')
     console.log('user disconnected');
   });
-});
-
-/*
-    POST request per l'invio di un messaggio
-    prende dalla query 'numericid' e 'message', connette al db, crea la query, la svolge restituendo un errore o la conferma
-*/
-router.post('/inviaMessaggio', function(req,res) {
-    console.log("richiesta di invio di un messaggio");
-    var message = req.query.message;
-
-    connection.query(query, function(error) {
-        if (error) {
-            res.send(error);
-        } else {
-            var response = vsprintf('inserito messaggio: %s', [message]);
-            res.send(response);
-        }
-    });
 });
 
 router.get('/getMessageHistory', function(req,res) {
@@ -109,7 +105,8 @@ router.get('/getMessageHistory', function(req,res) {
 /*
     GET request per ottenere i messaggi nella table
 */
-router.get('/messages', function(req,res) {
+router.route('/messages')
+  .get( function(req,res) {
     console.log("chiamata a getMessaggi");
     client.search({
       index: 'message',
@@ -127,3 +124,7 @@ router.get('/messages', function(req,res) {
       res.send(err);
     });
 });
+
+require('./app/routes.js')(router,passport);
+
+app.use(router);
