@@ -13,13 +13,17 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require("body-parser");
 var session = require('express-session');
 
+mongoose.connect('mongodb://localhost/insquare', function(err) {
+  if (err) {
+    console.error(err);
+  }
+  console.log('connected.... unless you see an error the line before this!');
+});
 /*
   Setup delle variabili prese dall'environment
 */
 var server_port = 8080;
 var server_ip_address = '127.0.0.1';
-
-require('./config/passport')(passport);
 
 app.use(morgan('dev'));
 app.use(cookieParser());
@@ -33,6 +37,8 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
+
+require('./config/passport')(passport);
 
 app.set('view engine', 'ejs');
 

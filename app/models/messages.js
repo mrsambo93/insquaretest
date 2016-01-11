@@ -11,7 +11,7 @@ var messageSchema = mongoose.Schema({
 });
 
 messageSchema.plugin(mongoosastic, {
-	host: 'http://elastic-insquare.rhcloud.com'
+	hosts: ['http://elastic-insquare.rhcloud.com']
 })
 
 module.exports = mongoose.model('Message', messageSchema);

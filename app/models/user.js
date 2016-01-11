@@ -42,8 +42,18 @@ userSchema.methods.validPassword = function(password)
 };
 
 userSchema.plugin(mongoosastic, {
-	host: 'http://elastic-insquare.rhcloud.com'
+	hosts: ['http://elastic-insquare.rhcloud.com']
 });
 
 // create model and expose for our app to see
-module.exports = mongoose.model('User', userSchema);
+User = module.exports = mongoose.model('User', userSchema);
+
+User.createMapping(function (err,mapping) {
+	if(err){
+    console.log('error creating mapping (you can safely ignore this)');
+    console.log(err);
+  }else{
+    console.log('mapping created!');
+    console.log(mapping);
+	}
+});

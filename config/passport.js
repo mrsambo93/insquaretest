@@ -1,7 +1,7 @@
 // passport.js for managing login Strategies
 
 // loading what we need
-var LocalStrategy = require('passport-local').Strategy; 
+var LocalStrategy = require('passport-local').Strategy;
 var FacebookStrategy = require('passport-facebook').Strategy;
 var TwitterStrategy = require('passport-twitter').Strategy;
 var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
@@ -18,15 +18,15 @@ module.exports = function(passport)
 	// =============
 	// Required for persistent login sessions
 	// Passport needs ability to serialize and unserialize users out of session
-	
+
 	passport.serializeUser(function(user,done){
 		done(null, user.id);
 	});
 
 	passport.deserializeUser(function(id, done)
 	{
-		User.findById(id, function(err, user){ 
-			done(err, user); 
+		User.findById(id, function(err, user){
+			done(err, user);
 		});
 	});
 
@@ -111,14 +111,14 @@ module.exports = function(passport)
 		usernameField : 'email',
 		passwordField : 'password',
 		passReqToCallback : true
-	}, 
+	},
 	function(req, email, password, done)
 	{
 		if(email)
 			email = email.toLowerCase();
 		process.nextTick(function()
 		{
-			User.findOne( { 'local.email' : email }, function(err, user) 
+			User.findOne( { 'local.email' : email }, function(err, user)
 			{
 				if(err)  return done(err);
 
@@ -137,7 +137,7 @@ module.exports = function(passport)
 
 	// Facebook
 	// ========
-	
+
 	passport.use(new FacebookStrategy({
 
         // pull in our app id and secret from our auth.js file
@@ -165,7 +165,7 @@ module.exports = function(passport)
 	                    return done(err);
 
 	                // if the user is found, then log them in
-	                if (user) 
+	                if (user)
 	                {
 	                	// if there is a user id already but no token (user was linked at one point and then removed)
                         if (!user.facebook.token) {
@@ -176,7 +176,7 @@ module.exports = function(passport)
                             user.save(function(err) {
                                 if (err)
                                     return done(err);
-                                    
+
                                 return done(null, user);
                             });
                         }
@@ -186,8 +186,8 @@ module.exports = function(passport)
 	                    var newUser            = new User();
 
 	                    // set all of the facebook information in our user model
-	                    newUser.facebook.id    = profile.id; // set the users facebook id                   
-	                    newUser.facebook.token = token; // we will save the token that facebook provides to the user                    
+	                    newUser.facebook.id    = profile.id; // set the users facebook id
+	                    newUser.facebook.token = token; // we will save the token that facebook provides to the user
 	                    newUser.facebook.name  = profile.name.givenName + ' ' + profile.name.familyName; // look at the passport user profile to see how names are returned
 	                    newUser.facebook.email = (profile.emails[0].value || '').toLowerCase();
 
@@ -230,10 +230,10 @@ module.exports = function(passport)
 
 	function(req, token, tokenSecret, profile, done)
 	{
-		process.nextTick(function() 
+		process.nextTick(function()
 		{
 			if(!req.user)
-			{	
+			{
 				User.findOne({ 'twitter.id' : profile.id}, function(err,user)
 				{
 					if(err) return done(err);
@@ -305,12 +305,12 @@ module.exports = function(passport)
         	if(!req.user)
         	{
 	            // try to find the user based on their google id
-	            User.findOne({ 'google.id' : profile.id }, function(err, user) 
+	            User.findOne({ 'google.id' : profile.id }, function(err, user)
 	            {
 	                if (err)
 	                    return done(err);
 
-	                if (user) 
+	                if (user)
 	                {
 
 	                	if(!user.google.token)
@@ -319,7 +319,7 @@ module.exports = function(passport)
 	                		user.google.name = profile.displayName;
 	                		user.google.email = (profile.emails[0].value || '').toLowerCase();
 
-	                		user.save(function(err) 
+	                		user.save(function(err)
 	                		{
 		                        if (err)
 		                            throw err;
@@ -354,15 +354,15 @@ module.exports = function(passport)
 				user.google.id = profile.id;
 				user.google.token = token;
         		user.google.name = profile.displayName;
-        		user.google.email = (profile.emails[0].value || '').toLowerCase();	
+        		user.google.email = (profile.emails[0].value || '').toLowerCase();
 
-        		user.save(function(err) 
+        		user.save(function(err)
         		{
                     if (err)
                         throw err;
                     return done(null, user);
             	});
-			}	
+			}
         });
 
     }));
