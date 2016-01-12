@@ -13,17 +13,26 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require("body-parser");
 var session = require('express-session');
 
-mongoose.connect('mongodb://localhost/insquare', function(err) {
+/*
+  Setup delle variabili prese dall'environment
+*/
+var server_port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+var server_ip_address = process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
+var connection_string = '127.0.0.1:27017/insquare';
+if(process.env.OPENSHIFT_MONGODB_DB_PASSWORD){
+  connection_string = process.env.OPENSHIFT_MONGODB_DB_USERNAME + ":" +
+  process.env.OPENSHIFT_MONGODB_DB_PASSWORD + "@" +
+  process.env.OPENSHIFT_MONGODB_DB_HOST + ':' +
+  process.env.OPENSHIFT_MONGODB_DB_PORT + '/' +
+  process.env.OPENSHIFT_APP_NAME;
+}
+
+mongoose.connect(connection_string, function(err) {
   if (err) {
     console.error(err);
   }
   console.log('connected.... unless you see an error the line before this!');
 });
-/*
-  Setup delle variabili prese dall'environment
-*/
-var server_port = 8080;
-var server_ip_address = '127.0.0.1';
 
 app.use(morgan('dev'));
 app.use(cookieParser());
