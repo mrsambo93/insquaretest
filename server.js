@@ -18,21 +18,11 @@ var session = require('express-session');
 */
 var server_port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 var server_ip_address = process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
-var connection_string;
-if(process.env.OPENSHIFT_MONGODB_DB_PASSWORD){
-  connection_string = process.env.OPENSHIFT_MONGODB_DB_USERNAME + ":" +
-  process.env.OPENSHIFT_MONGODB_DB_PASSWORD + "@" +
-  process.env.OPENSHIFT_MONGODB_DB_HOST + ':' +
-  process.env.OPENSHIFT_MONGODB_DB_PORT + '/' +
-  process.env.OPENSHIFT_APP_NAME;
+var connection_string = 'mongodb://localhost:27017/insquare';
+if (process.env.OPENSHIFT_MONGODB_DB_URL) {
+  connection_string = process.env.OPENSHIFT_MONGODB_DB_URL +
+                      process.env.OPENSHIFT_APP_NAME;
 }
-
-mongoose.connect(connection_string, function(err) {
-  if (err) {
-    console.error(err);
-  }
-  console.log('connected.... unless you see an error the line before this!');
-});
 
 app.use(morgan('dev'));
 app.use(cookieParser());
@@ -54,6 +44,14 @@ app.set('view engine', 'ejs');
 var router = express.Router();
 
 // CONNESSIONE AL SERVER
+mongoose.connect(connection_string, function(err) {
+  console.log(connection_string);
+  if (err) {
+    console.error(err);
+  }
+  console.log('connected.... unless you see an error the line before this!');
+});
+
 http.listen(server_port, server_ip_address, function () {
     console.log("Example app listening at http://%s:%s", server_ip_address, server_port);
 });
@@ -63,83 +61,77 @@ var client = new elasticsearch.Client({
   log: 'trace'
 });
 
-client.ping({
-  // ping usually has a 3000ms timeout
-  requestTimeout: Infinity,
-  // undocumented params are appended to the query string
-  hello: "elasticsearch!"
-}, function (error) {
-  if (error) {
-    console.trace('elasticsearch cluster is down!');
-  } else {
-    console.log('All is well');
-  }
-});
+var Message = require('./app/models/message')
+var numUsers = 0;
 
-io.on('connection', function(socket,req,res) {
-  console.log('a user connected');
-  io.emit('user connected');
-  socket.on('chat message', function(msg){
-    io.emit('chat message', msg);
-    client.create({
-      index: 'message',
-      type: 'messages',
-      body: {
-        text: msg,
-        user: '',
-        square:"Roma",
-        timestamp: new Date()
-      }
+io.on('connection', function (socket) {
+  var addedUser = false;
+
+  // when the client emits 'new message', this listens and executes
+  socket.on('new message', function (msg) {
+    // we tell the client to execute 'new message'
+    //io.emit('chat message', msg) ??;
+    socket.broadcast.emit('new message', {
+      username: socket.username,
+      message: msg
+    });
+    var mess = new Message();
+    mess.text = msg;
+    mess.createdAt = new Date();
+    mess.senderId = socket.id;
+    mess.senderEmail = socket.email;
+    mess.save(function(err) {
+      if(err) throw err;
+      return mess;
     });
   });
-  socket.on('disconnect', function() {
-    io.emit('user disconnected')
-    console.log('user disconnected');
-  });
-});
 
-router.get('/getMessageHistory', function(req,res) {
-  console.log("chiamata a getMessageHistory");
-  client.search({
-    index: 'message',
-    type: 'messages',
-    body: {
-      query: {
-        match_all:{}
-      }
+  // when the client emits 'add user', this listens and executes
+  socket.on('add user', function (username) {
+    if (addedUser) return;
+
+    // we store the username in the socket session for this client
+    socket.username = username;
+    ++numUsers;
+    addedUser = true;
+    socket.emit('login', {
+      numUsers: numUsers
+    });
+    // echo globally (all clients) that a person has connected
+    socket.broadcast.emit('user joined', {
+      username: socket.username,
+      numUsers: numUsers
+    });
+  });
+
+  // when the client emits 'typing', we broadcast it to others
+  socket.on('typing', function () {
+    socket.broadcast.emit('typing', {
+      username: socket.username
+    });
+  });
+
+  // when the client emits 'stop typing', we broadcast it to others
+  socket.on('stop typing', function () {
+    socket.broadcast.emit('stop typing', {
+      username: socket.username
+    });
+  });
+
+  // when the user disconnects.. perform this
+  socket.on('disconnect', function () {
+    if (addedUser) {
+      --numUsers;
+
+      // echo globally that this client has left
+      socket.broadcast.emit('user left', {
+        username: socket.username,
+        numUsers: numUsers
+      });
     }
-    }).then(function (resp) {
-      var hits = resp.hits.hits;
-      res.send(resp);
-    }, function (err) {
-      console.trace(err.message);
-      res.send(err);
-    });
+  });
 });
 
-/*
-    GET request per ottenere i messaggi nella table
-*/
-router.route('/messages')
-  .get( function(req,res) {
-    console.log("chiamata a getMessaggi");
-    client.search({
-      index: 'message',
-      type: 'messages',
-      body: {
-        query: {
-          match_all:{}
-        }
-      }
-    }).then(function (resp) {
-      var hits = resp.hits.hits;
-      res.send(resp);
-    }, function (err) {
-      console.trace(err.message);
-      res.send(err);
-    });
-});
-
-require('./app/routes.js')(router,passport);
+require('./app/routes.js')(router,passport,io);
 
 app.use(router);

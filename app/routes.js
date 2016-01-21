@@ -1,6 +1,6 @@
 // router/routes
 
-module.exports = function(router, passport)
+module.exports = function(router, passport, io)
 {
 	//HOME PAGE
 	router.get('/', function(req, res)
@@ -41,22 +41,42 @@ module.exports = function(router, passport)
 	// ===============
 	router.get('/profile', isLoggedIn, function(req,res)
 	{
-		res.render('profile.ejs', {
-			user: req.user //get the user from the session and pass to template
-		});
+		console.log(req.user);
+		res.json(req.user);
+		//res.render('profile.ejs', {
+		//	user: req.user //get the user from the session and pass to template
+		//});
 	});
 
 	// FACEBOOK ROUTES
 	// ===============
+
+	router.post('/auth/facebook/token', passport.authenticate('facebook-token'),
+  	function (req, res) {
+    // do something with req.user
+			res.json({
+				id : req.user.facebook.id,
+				name : req.user.facebook.name,
+				email : req.user.facebook.email});
+  	});
+
 	router.get('/auth/facebook', passport.authenticate('facebook', {scope: 'email'}));
 
 	router.get('/auth/facebook/callback', passport.authenticate('facebook', {
-		successRedirect : '/profile',
+		//successRedirect : '/profile',
 		failureRedirect : '/'
-	}));
+	}), function(req,res) {
+		res.json(req.user);
+	});
 
 	// TWITTER ROUTES
 	// ==============
+	router.post('/auth/twitter/token', passport.authenticate('twitter-token'),
+  	function (req, res) {
+    // do something with req.user
+    	res.send(req.user ? 200 : 401);
+  	});
+
 	router.get('/auth/twitter', passport.authenticate('twitter'));
 
 	router.get('/auth/twitter/callback', passport.authenticate('twitter', {
@@ -67,6 +87,11 @@ module.exports = function(router, passport)
 
 	// GOOGLE ROUTES
 	// ==============
+	router.post('/auth/google/token', passport.authenticate('google-plus-token'),
+		function(req, res) {
+			res.send(req.user? 200 : 401);
+		});
+
 	router.get('/auth/google', passport.authenticate('google', { scope : ['profile', 'email'] }));
 
     // the callback after google has authenticated the user
@@ -98,6 +123,7 @@ module.exports = function(router, passport)
 		successRedirect: '/profile',
 		failureRedirect: '/'
 	}));
+
 
 	// TWITTER
 	// => authentication
@@ -169,97 +195,8 @@ module.exports = function(router, passport)
         });
     });
 
-    // Send messages
-    router.post('/messages', isLoggedIn, function(req, res)
-    {
-		var mes = new Message();
-		var email = (function()
-		{
-			if(req.user.local.email)
-				return req.user.local.email;
-			if(req.user.facebook.email)
-				return req.user.facebook.email;
-			if(req.user.google.email)
-				return req.user.google.email;
-		}) ();
-
-    	mes.text = "I am a new message";
-    	mes.createdAt = (new Date()).getTime();
-    	mes.senderId = req.user.id;
-    	mes.senderEmail = email;
-    	mes.squareId = "#Google Workshop";
-
-    	mes.save(function(err)
-    	{
-    		if(err) throw err;
-    		console.log(mes);
-    	});
-
-		res.send(req.user + " created a new message!");
-    });
-
-    router.get('/messages', isLoggedIn, function(req, res)
-    {
-    	var squareId = req.param('squareId');
-    	var senderId = req.user.id;
-
-    	if(senderId && squareId)
-    	{
-	    	console.log(squareId);
-	    	console.log(senderId);
-
-	    	var params = { 'senderId':senderId, 'squareId':squareId };
-
-	    	var query = findMessages(params, res);
-	    	query.exec(
-	    		function(err,messages)
-		    	{
-		    		if(err) throw err;
-
-		    		res.send(messages[0]);
-		    	});
-
-    	}else if(senderId)
-    	{
-    		console.log(senderId);
-	    	var params = { 'senderId':senderId };
-			var query = findMessages(params, res);
-	    	query.exec(
-	    		function(err,messages)
-		    	{
-		    		if(err) throw err;
-
-		    		res.send(messages[0]);
-		    	});
-
-    	}else if(squareId)
-    	{
-    		console.log(squareId);
-	    	var params = { 'squareId':squareId};
-	    	var query = findMessages(params, res);
-	    	query.exec(
-	    		function(err,messages)
-		    	{
-		    		if(err) throw err;
-
-		    		res.send(messages);
-		    	});
-
-    	}
-    	else
-    	{
-    		console.log("No parameters!");
-			var query = findMessages({}, res);
-	    	query.exec(
-	    		function(err,messages)
-		    	{
-		    		if(err) throw err;
-
-		    		res.send(messages);
-		    	});
-
-	    }
-    });
+		var Square = require('/models/square');
+		
 };
 
 function isLoggedIn(req, res, next)
@@ -269,5 +206,6 @@ function isLoggedIn(req, res, next)
 		return next();
 
 	// else redirect to home page
-	res.redirect('/');
+	res.send("unauthorized");
+	//res.redirect('/');
 }
